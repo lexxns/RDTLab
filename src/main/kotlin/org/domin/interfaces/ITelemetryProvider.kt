@@ -2,7 +2,6 @@ package org.domin.interfaces
 
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
-import kotlin.reflect.KFunction2
 
 interface ITelemetryProvider {
     val scheduler: ScheduledExecutorService

@@ -3,10 +3,9 @@ package org.domin
 import org.domin.collectors.SimpleResultCollector
 import org.domin.events.RoutineEvent
 import org.domin.interfaces.ITelemetryProvider
-import java.util.concurrent.TimeUnit
 
 class TestRunner(
-        private val devicesUnderTest: List<ITelemetryProvider>
+        devicesUnderTest: List<ITelemetryProvider>
 ) {
     private var testCompleted = false
     var report: Map<String, Any>? = null
