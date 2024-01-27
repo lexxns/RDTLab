@@ -8,6 +8,7 @@ interface ITelemetryProvider {
     val scheduler: ScheduledExecutorService
     val subscribers: MutableList<(Map<String, Any>) -> Unit>
     val events: MutableList<ITelemetryEvent>
+    val name: String
 
     fun pollTelemetry(): Map<String, Any>
     fun registerEventTrigger(event: ITelemetryEvent)

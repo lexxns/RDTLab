@@ -6,11 +6,11 @@ import org.domin.interfaces.ITelemetryProvider
 import java.util.concurrent.TimeUnit
 
 class TestRunner(
-        private val deviceUnderTest: ITelemetryProvider
+        private val devicesUnderTest: List<ITelemetryProvider>
 ) {
     private var testCompleted = false
     var report: Map<String, Any>? = null
-    private val testDataCollector = SimpleResultCollector(listOf(deviceUnderTest))
+    private val testDataCollector = SimpleResultCollector(devicesUnderTest)
 
     private fun setupTestEnvironment() {
         // Setup test environment

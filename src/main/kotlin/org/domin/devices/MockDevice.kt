@@ -4,7 +4,7 @@ import org.domin.providers.SimpleTelemetryProvider
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
 
-class MockDevice : SimpleTelemetryProvider() {
+class MockDevice(override val name: String) : SimpleTelemetryProvider() {
     private val faker = Faker()
 
     override fun pollTelemetry(): Map<String, Any> {

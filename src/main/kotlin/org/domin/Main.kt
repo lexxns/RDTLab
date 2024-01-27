@@ -15,8 +15,10 @@ fun printReport(report: Map<*,*>) {
 }
 
 fun main() {
-    val device = MockDevice()
-    val testRunner = TestRunner(device)
+    val device = MockDevice("A")
+    val deviceB = MockDevice("B")
+    val devices = listOf(device, deviceB)
+    val testRunner = TestRunner(devices)
     testRunner.run()
 
     printReport(testRunner.report!!)

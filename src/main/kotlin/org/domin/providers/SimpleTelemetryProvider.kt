@@ -10,6 +10,7 @@ open class SimpleTelemetryProvider : ITelemetryProvider {
     override val scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(1)
     override val subscribers: MutableList<(Map<String, Any>) -> Unit> = mutableListOf()
     override val events: MutableList<ITelemetryEvent> = mutableListOf()
+    override val name: String = "SimpleTelemetryProvider"
 
     override fun pollTelemetry(): Map<String, Any> {
         return mapOf("test" to "test")
