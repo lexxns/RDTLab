@@ -2,14 +2,18 @@ package org.domin
 
 import org.domin.collectors.SimpleResultCollector
 import org.domin.events.RoutineEvent
-import org.domin.interfaces.ITelemetryProvider
+import org.domin.interfaces.IHardwareInterface
+import org.domin.routine.Test
 
 class TestRunner(
-        devicesUnderTest: List<ITelemetryProvider>
+        devicesUnderTest: List<IHardwareInterface>,
+        private val test: Test
 ) {
     private var testCompleted = false
     var report: Map<String, Any>? = null
-    private val testDataCollector = SimpleResultCollector(devicesUnderTest)
+    private val testDataCollector = SimpleResultCollector(
+            devicesUnderTest.map { it.telemetryProvider }
+    )
 
     private fun setupTestEnvironment() {
         // Setup test environment
@@ -21,23 +25,11 @@ class TestRunner(
         testDataCollector.logEvent(RoutineEvent(name="ready_to_start"))
     }
 
-    private fun executeTest() {
+    private fun executeTest(test: Test) {
         val startTime = System.currentTimeMillis()  // Starting time
-        val duration = 10000  // Duration in milliseconds (10 seconds)
         testDataCollector.logEvent(RoutineEvent(name="executing_test"))
 
-        while (System.currentTimeMillis() < startTime + duration) {
-            val latestData = testDataCollector.getLatestTelemetryData()
-
-            if (isTestComplete()) {
-                break
-            }
-
-            // Perform the terminal output logic with latestData, if needed
-
-            // Sleep for a short duration to avoid busy-waiting
-            Thread.sleep(100)
-        }
+        test.run()
 
         testCompleted = true
         testDataCollector.logEvent(RoutineEvent(name="test_completed"))
@@ -76,7 +68,7 @@ class TestRunner(
         try {
             setupTestEnvironment()
             executePreTestActions()
-            executeTest()
+            executeTest(test)
             executePostTestActions()
         } catch (e: Exception) {
             println("An error occurred: $e")
