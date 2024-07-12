@@ -21,7 +21,7 @@ dependencies {
     testImplementation 'io.rest-assured:rest-assured'
 }
 
-group 'org.domin'
+group 'org.lexxns'
 version '1.0.0-SNAPSHOT'
 
 java {
