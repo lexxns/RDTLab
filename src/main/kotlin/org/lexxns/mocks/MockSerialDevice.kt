@@ -1,106 +1,32 @@
 package org.lexxns.mocks
 
+import org.lexxns.utils.CommandExecutor
+import org.lexxns.utils.CreateComPortsCommand
+import org.lexxns.utils.ListComPortsCommand
+import org.lexxns.utils.RemoveComPortsCommand
 import java.io.*
 import kotlin.concurrent.thread
 
+
+
 class MockSerialDevice {
+    private var commandExecutor: CommandExecutor = CommandExecutor()
     private var file: RandomAccessFile? = null
     private var isRunning = false
     private var portName: String? = null
-    private val com0comPath: String
-    private lateinit var elevatedProcess: Process
-    private lateinit var processInput: PrintWriter
-    private lateinit var processOutput: BufferedReader
-
-    init {
-        com0comPath = findCom0ComPath()
-        if (com0comPath.isEmpty()) {
-            throw IllegalStateException("Could not find com0com installation. Please ensure it's installed correctly.")
-        }
-        startElevatedProcess()
-    }
-
-    private fun findCom0ComPath(): String {
-        val possiblePaths = listOf(
-            "C:\\Program Files\\com0com",
-            "C:\\Program Files (x86)\\com0com",
-            "C:\\com0com"
-        )
-
-        for (path in possiblePaths) {
-            if (File("$path\\setupc.exe").exists()) {
-                return path
-            }
-        }
-
-        return ""
-    }
-
-    private fun startElevatedProcess() {
-        val elevateVbs = createElevateScript()
-        elevatedProcess = Runtime.getRuntime().exec(
-            arrayOf("cscript", "//Nologo", elevateVbs.absolutePath, "cmd.exe")
-        )
-        processInput = PrintWriter(elevatedProcess.outputStream, true)
-        processOutput = BufferedReader(InputStreamReader(elevatedProcess.inputStream))
-
-        // Wait for the elevated process to start
-        while (!processOutput.ready()) {
-            Thread.sleep(100)
-        }
-
-        elevateVbs.delete()
-    }
-
-    private fun createElevateScript(): File {
-        val script = """
-        Set UAC = CreateObject("Shell.Application")
-        UAC.ShellExecute "cmd.exe", "", "", "runas", 1
-        """.trimIndent()
-
-        val tempFile = File.createTempFile("elevate", ".vbs")
-        tempFile.writeText(script)
-        tempFile.deleteOnExit()
-        return tempFile
-    }
-
-    private fun runCommand(command: String): Pair<Int, String> {
-        processInput.println(command)
-        processInput.println("echo %ERRORLEVEL%")
-
-        val output = StringBuilder()
-        var line: String?
-        while (processOutput.readLine().also { line = it } != null) {
-            if (line == "%ERRORLEVEL%") break
-            output.append(line).append("\n")
-        }
-        val errorLevel = processOutput.readLine()?.toIntOrNull() ?: -1
-
-        return Pair(errorLevel, output.toString())
-    }
 
     private fun isComPortAvailable(portName: String): Boolean {
-        val (_, output) = runCommand("$com0comPath\\setupc.exe list")
+        val listCommand = ListComPortsCommand()
+        val output = commandExecutor.execute(listCommand)
         return portName in output
-    }
-
-    private fun getAvailableComPorts(): List<String> {
-        val (_, output) = runCommand("$com0comPath\\setupc.exe list")
-        return output.split("\n")
-            .filter { it.contains("COM") }
-            .mapNotNull { line ->
-                line.split(" ").find { it.startsWith("COM") }
-            }
     }
 
     fun connect(): Boolean {
         try {
             // Create a pair of virtual COM ports
-            val (exitCode, output) = runCommand("$com0comPath\\setupc.exe install PortName=COM10 PortName=COM11")
-            if (exitCode != 0) {
-                println("Failed to create virtual COM ports. Output: $output")
-                return false
-            }
+            val createCommand = CreateComPortsCommand("COM10", "COM11")
+            val createOutput = commandExecutor.execute(createCommand)
+            println(createOutput)
 
             // Wait for the COM port to become available
             portName = "COM10"
@@ -141,12 +67,9 @@ class MockSerialDevice {
             file = null
 
             // Remove the virtual COM ports
-            val (exitCode, output) = runCommand("$com0comPath\\setupc.exe remove 0")
-            if (exitCode != 0) {
-                println("Warning: Failed to remove virtual COM ports. Output: $output")
-            } else {
-                println("Disconnected and removed virtual COM ports")
-            }
+            val removeCommand = RemoveComPortsCommand(0)
+            val removeOutput = commandExecutor.execute(removeCommand)
+            println(removeOutput)
         } catch (e: Exception) {
             println("Error disconnecting: ${e.message}")
         }
@@ -194,7 +117,7 @@ class MockSerialDevice {
 
     fun close() {
         disconnect()
-        elevatedProcess.destroy()
+        commandExecutor.shutdown()
     }
 }
 

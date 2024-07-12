@@ -1,13 +1,12 @@
 package org.lexxns.utils
 
-import java.io.File
-import java.io.Serializable
+import java.io.*
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.Executors
 
 
 interface Command : Serializable {
-    fun execute()
+    fun execute(): String
     fun requiresAdmin(): Boolean
 }
 
@@ -16,23 +15,24 @@ abstract class AdminCommand : Command {
 }
 
 class EchoCommand(private val message: String) : Command {
-    override fun execute() {
+    override fun execute(): String {
         println(message)
+        return "Printed $message"
     }
 
     override fun requiresAdmin() = false
 }
 
 class CreateFileCommand(val path: String) : AdminCommand() {
-    override fun execute() {
+    override fun execute(): String {
         File(path).createNewFile()
-        println("File created at: $path")
+        return "File created at: $path"
     }
 }
 
 class DeleteFileCommand(private val fileName: String) : AdminCommand() {
-    override fun execute() {
-        println("Deleting file: $fileName")
+    override fun execute(): String {
+        return "Deleting file: $fileName"
     }
 }
 
@@ -41,15 +41,22 @@ class CommandExecutor {
     private val executor = Executors.newSingleThreadExecutor()
     private var isElevated = false
 
-    fun execute(command: Command) {
-        if (command.requiresAdmin() && !isElevated) {
+    fun execute(command: Command): String {
+        return if (command.requiresAdmin() && !isElevated) {
             elevatePrivileges(command)
         } else {
-            executor.submit { command.execute() }
+            executor.submit<String> {
+                val baos = ByteArrayOutputStream()
+                val oldOut = System.out
+                System.setOut(PrintStream(baos))
+                val result = command.execute()
+                System.setOut(oldOut)
+                baos.toString() + result
+            }.get()
         }
     }
 
-    private fun elevatePrivileges(adminCommand: Command) {
+    private fun elevatePrivileges(adminCommand: Command): String {
         println("Requesting admin privileges...")
         val javaBin = "${System.getProperty("java.home")}${File.separator}bin${File.separator}java"
 
@@ -98,12 +105,14 @@ class CommandExecutor {
 
             println("Elevation process completed. Output: $output")
             isElevated = true
+            return output
         } catch (e: Exception) {
             println("Error during elevation: ${e.message}")
             e.printStackTrace()
         } finally {
             batchFile.delete()
         }
+        return "Failed to execute command"
     }
 
     private fun createBatchFile(javaBin: String, javaArgs: String): File {
@@ -123,10 +132,11 @@ class CommandExecutor {
     }
 
     private fun serializeCommand(command: Command): String {
-        // This is a simple serialization. In a real-world scenario, you might want to use
-        // a more robust serialization method, like JSON or Protocol Buffers.
         return when (command) {
             is CreateFileCommand -> command.path
+            is ListComPortsCommand -> ""
+            is CreateComPortsCommand -> "${command.port1},${command.port2}"
+            is RemoveComPortsCommand -> command.pair.toString()
             else -> throw UnsupportedOperationException("Unsupported command type: ${command.javaClass.name}")
         }
     }
@@ -148,8 +158,11 @@ object ElevatedCommandExecutor {
                 println("Attempting to create instance of: $commandClassName")
                 val command = deserializeCommand(commandClassName, serializedCommand)
                 println("Instance created, executing command")
-                command.execute()
+                val baos = ByteArrayOutputStream()
+                System.setOut(PrintStream(baos))
+                val result = command.execute()
                 println("Admin command executed successfully")
+                println("Output: ${baos.toString() + result}")
             } catch (e: Exception) {
                 System.err.println("Error executing admin command: ${e.message}")
                 e.printStackTrace()
@@ -162,6 +175,12 @@ object ElevatedCommandExecutor {
     private fun deserializeCommand(className: String, serializedData: String): Command {
         return when (className) {
             CreateFileCommand::class.java.name -> CreateFileCommand(serializedData)
+            ListComPortsCommand::class.java.name -> ListComPortsCommand()
+            CreateComPortsCommand::class.java.name -> {
+                val (port1, port2) = serializedData.split(",")
+                CreateComPortsCommand(port1, port2)
+            }
+            RemoveComPortsCommand::class.java.name -> RemoveComPortsCommand(serializedData.toInt())
             else -> throw UnsupportedOperationException("Unsupported command type: $className")
         }
     }
